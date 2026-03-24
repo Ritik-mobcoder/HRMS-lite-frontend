@@ -1,31 +1,25 @@
-# Stage 1: Build the React application
+# Stage 1: Build
 FROM node:20-slim AS build
-
 WORKDIR /app
-
-# Copy package.json and package-lock.json
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
-
-# Copy the rest of the application code
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Stage 2: Serve the build using Nginx
+# Stage 2: Nginx
 FROM nginx:alpine
 
-# Copy the custom nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Remove default config
+RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy the build output from the first stage
+# Copy template config
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+
+# Copy build
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Expose port 80
-EXPOSE 80
+# Expose dynamic port
+EXPOSE 8080
 
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start nginx with env substitution
+CMD ["sh", "-c", "envsubst '$PORT' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
